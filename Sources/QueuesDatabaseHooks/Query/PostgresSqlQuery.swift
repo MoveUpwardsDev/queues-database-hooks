@@ -45,7 +45,7 @@ public class PostgresSqlQuery {
             COUNT(*) as "completedJobs",
             COALESCE(SUM(
                 CASE state::TEXT
-                WHEN 'completed' THEN
+                WHEN 'success' THEN
                     1
                 ELSE
                     0
