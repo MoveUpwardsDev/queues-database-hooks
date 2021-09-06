@@ -16,8 +16,8 @@ public class PostgresSqlQuery {
         SELECT
             COALESCE(
                 SUM(
-                    CASE status
-                    WHEN 0::char THEN
+                    CASE state::TEXT
+                    WHEN 'queued' THEN
                         1
                     ELSE
                         0
@@ -26,8 +26,8 @@ public class PostgresSqlQuery {
             , 0) as "queuedCount",
             COALESCE(
                 SUM(
-                    CASE status
-                    WHEN 1::char THEN
+                    CASE state::TEXT
+                    WHEN 'running' THEN
                         1
                     ELSE
                         0
@@ -44,8 +44,8 @@ public class PostgresSqlQuery {
         SELECT
             COUNT(*) as "completedJobs",
             COALESCE(SUM(
-                CASE status
-                WHEN 2::char THEN
+                CASE state::TEXT
+                WHEN 'completed' THEN
                     1
                 ELSE
                     0

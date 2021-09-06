@@ -39,17 +39,19 @@ public struct QueuesDatabaseNotificationHook: JobEventDelegate {
     ///   - eventLoop: The eventLoop
     public func dispatched(job: JobEventData, eventLoop: EventLoop) -> EventLoopFuture<Void> {
         let data = payloadClosure(job)
-        let model = QueueDatabaseEntry(jobId: data.id,
-                                  jobName: data.jobName,
-                                  queueName: data.queueName,
-                                  payload: Data(data.payload),
-                                  maxRetryCount: data.maxRetryCount,
-                                  delayUntil: data.delayUntil,
-                                  queuedAt: data.queuedAt,
-                                  dequeuedAt: nil,
-                                  completedAt: nil,
-                                  errorString: nil,
-                                  status: .queued)
+        let model = QueueDatabaseEntry(
+            jobId: data.id,
+            jobName: data.jobName,
+            queueName: data.queueName,
+            payload: Data(data.payload),
+            maxRetryCount: data.maxRetryCount,
+            delayUntil: data.delayUntil,
+            queuedAt: data.queuedAt,
+            dequeuedAt: nil,
+            completedAt: nil,
+            errorString: nil,
+            state: .queued
+        )
         
         return model.save(on: database).map { _ in
             self.database.logger.info("\(job.id) - Added route to database, db ID \(model.id?.uuidString ?? "")")
@@ -65,7 +67,7 @@ public struct QueuesDatabaseNotificationHook: JobEventDelegate {
         return QueueDatabaseEntry
             .query(on: database)
             .filter(\.$jobId == jobId)
-            .set(\.$status, to: .running)
+            .set(\.$state, to: .running)
             .set(\.$dequeuedAt, to: Date())
             .update().map { _ in
                 self.database.logger.info("\(jobId) - Done updating to status of running")
@@ -82,7 +84,7 @@ public struct QueuesDatabaseNotificationHook: JobEventDelegate {
         return QueueDatabaseEntry
             .query(on: database)
             .filter(\.$jobId == jobId)
-            .set(\.$status, to: .success)
+            .set(\.$state, to: .success)
             .set(\.$completedAt, to: Date())
             .update().map { _ in
                 self.database.logger.info("\(jobId) - Done updating to status of success")
@@ -100,7 +102,7 @@ public struct QueuesDatabaseNotificationHook: JobEventDelegate {
         return QueueDatabaseEntry
             .query(on: database)
             .filter(\.$jobId == jobId)
-            .set(\.$status, to: .error)
+            .set(\.$state, to: .error)
             .set(\.$errorString, to: errorClosure(error))
             .set(\.$completedAt, to: Date())
             .update().map { _ in

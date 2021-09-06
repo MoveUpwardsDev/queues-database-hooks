@@ -50,30 +50,15 @@ public final class QueueDatabaseEntry: Model {
     @OptionalField(key: "errorString")
     public var errorString: String?
 
-    /// The status of the job
-    @Field(key: "status")
-    public var status: Status
+    /// The state of the job
+    @Enum(key: "state")
+    public var state: JobState
 
     @Timestamp(key: "createdAt", on: .create)
     public var createdAt: Date?
 
     @Timestamp(key: "updatedAt", on: .update)
     public var updatedAt: Date?
-
-    /// The status of the queue job
-    public enum Status: Int, Codable {
-        /// The job has been queued but not yet picked up for processing
-        case queued
-
-        /// The job has been moved ot the processing queue and is currently running
-        case running
-
-        /// The job has finished and it was successful
-        case success
-
-        /// The job has finished and it returned an error
-        case error
-    }
 
     public init() { }
 
@@ -88,7 +73,7 @@ public final class QueueDatabaseEntry: Model {
         dequeuedAt: Date?,
         completedAt: Date?,
         errorString: String?,
-        status: Status
+        state: JobState
     ) {
         self.jobId = jobId
         self.jobName = jobName
@@ -98,7 +83,7 @@ public final class QueueDatabaseEntry: Model {
         self.delayUntil = delayUntil
         self.queuedAt = queuedAt
         self.errorString = errorString
-        self.status = status
+        self.state = state
         self.completedAt = completedAt
         self.createdAt = nil
         self.updatedAt = nil
@@ -109,25 +94,41 @@ public struct QueueDatabaseEntryMigration: Migration {
     public init() { }
 
     public func prepare(on database: Database) -> EventLoopFuture<Void> {
-        database.schema(QueueDatabaseEntry.schema)
-            .field(.id, .uuid, .identifier(auto: false))
-            .field("jobId", .string, .required)
-            .field("jobName", .string, .required)
-            .field("queueName", .string, .required)
-            .field("payload", .data, .required)
-            .field("maxRetryCount", .int, .required)
-            .field("delayUntil", .datetime)
-            .field("queuedAt", .datetime, .required)
-            .field("dequeuedAt", .datetime)
-            .field("completedAt", .datetime)
-            .field("errorString", .string)
-            .field("status", .int8, .required)
-            .field("createdAt", .datetime)
-            .field("updatedAt", .datetime)
+        database.enum(JobState.schema)
+            .case("queued")
+            .case("running")
+            .case("success")
+            .case("error")
             .create()
+            .transform(to: ())
+            .flatMap {
+                database.schema(QueueDatabaseEntry.schema)
+                    .field(.id, .uuid, .identifier(auto: false))
+                    .field("jobId", .string, .required)
+                    .field("jobName", .string, .required)
+                    .field("queueName", .string, .required)
+                    .field("payload", .data, .required)
+                    .field("maxRetryCount", .int, .required)
+                    .field("delayUntil", .datetime)
+                    .field("queuedAt", .datetime, .required)
+                    .field("dequeuedAt", .datetime)
+                    .field("completedAt", .datetime)
+                    .field("errorString", .string)
+                    .field("createdAt", .datetime)
+                    .field("updatedAt", .datetime)
+                    .create()
+            }
+            .flatMap {
+                database.enum(JobState.schema).read()
+                    .flatMap {
+                        database.schema(QueueDatabaseEntry.schema)
+                            .field("state", $0, .required)
+                            .update()
+                    }
+            }
     }
 
     public func revert(on database: Database) -> EventLoopFuture<Void> {
-        database.schema(QueueDatabaseEntry.schema).delete()
+        database.schema(QueueDatabaseEntry.schema).delete().flatMap { database.enum(JobState.schema).delete() }
     }
 }
