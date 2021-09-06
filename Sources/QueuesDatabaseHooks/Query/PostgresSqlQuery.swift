@@ -68,8 +68,8 @@ public class PostgresSqlQuery {
 
         return """
         SELECT
-            avg(EXTRACT(EPOCH FROM ("dequeuedAt" - "completedAt"))) as "avgRunTime",
-            avg(EXTRACT(EPOCH FROM ("queuedAt" - "dequeuedAt"))) as "avgWaitTime"
+            avg(EXTRACT(EPOCH FROM ("completedAt" - "dequeuedAt"))) as "avgRunTime",
+            avg(EXTRACT(EPOCH FROM ("dequeuedAt" - "queuedAt"))) as "avgWaitTime"
         FROM
             _queue_job_completions
         WHERE
